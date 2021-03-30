@@ -20,7 +20,7 @@ namespace Core
         {
             while (_working)
             {
-                var command = Console.ReadLine();
+                string command = Console.ReadLine() ?? "";
                 ConsoleResponse response;
                 try
                 {
@@ -118,7 +118,7 @@ namespace Core
                             break;
 
                         case ConsoleResponse.Actions.CompletedGroup:
-                            var group = TaskDelegate.Groups.Find(g => g.Name == response.Name);
+                            Group? group = TaskDelegate.Groups.Find(g => g.Name == response.Name);
                         
                             if (group == null)
                                 Console.WriteLine(new WrongGroupNameException().Message);
@@ -127,7 +127,7 @@ namespace Core
                             {
                                 Groups = new List<(string name, List<Task> tasks)>
                                 {
-                                    new (group.Name, group.Tasks.FindAll(t => t.IsCompleted))
+                                    new (group!.Name, group.Tasks.FindAll(t => t.IsCompleted))
                                 }
                             };
                             
