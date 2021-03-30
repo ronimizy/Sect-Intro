@@ -7,32 +7,26 @@ using Core.Entities;
 
 namespace Core.Models
 {
-    public class ToDoFile
+    public static class ToDoFile
     {
         public const string Extension = "tdlst";
 
-        public static void Save(List<Task> tasks, List<Group> groups, int size, string path)
+        public static void Save(FileData data, string path)
         {
             if (File.Exists(path))
                 File.Delete(path);
             
-            File.WriteAllText(path, JsonSerializer.Serialize((tasks, groups, size)));
+            File.WriteAllText(path, JsonSerializer.Serialize(data));
         }
 
-        public static (List<Task>, List<Group>, int) Load(string path)
+        public static FileData Load(string path)
         {
-            var result = (new List<Task>(), new List<Group>(), 0);
-
             if (path.Split(".").Last().Replace(" ", "") == Extension)
             {
-                result = JsonSerializer.Deserialize<(List<Task>, List<Group>, int)>(File.ReadAllText(path));
-            }
-            else
-            {
-                throw new InvalidDataException("Invalid file format");
+                return JsonSerializer.Deserialize<FileData>(File.ReadAllText(path)) ?? new FileData();
             }
             
-            return result;
+            throw new InvalidDataException("Invalid file format");
         }
     }
 }

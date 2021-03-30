@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Core.Models.Exceptions;
 
 namespace Core.Entities
@@ -12,7 +13,20 @@ namespace Core.Entities
 
         public string Name { get; set; }
         public string Info { get; set; }
-        public bool IsCompleted { get; set; }
+
+        private bool _isCompleted;
+        public bool IsCompleted
+        {
+            get
+            {
+                return Subtasks.Count == 0 ? _isCompleted : Subtasks.All(s => s.IsCompleted);
+            }
+            set
+            {
+                _isCompleted = value;
+                Subtasks = Subtasks.Select(s => new Task(s) { IsCompleted = true}).ToList();
+            }
+        }
         public DateTime? Deadline { get; set; }
         public List<Task> Subtasks { get; set; }
         
@@ -40,7 +54,7 @@ namespace Core.Entities
 
         public void CompleteSubTask(int id)
         {
-            var index = Subtasks.FindIndex((task => task.Id == id));
+            int index = Subtasks.FindIndex((task => task.Id == id));
             if (index != -1)
                 Subtasks[index].IsCompleted = true;
         }
@@ -56,11 +70,11 @@ namespace Core.Entities
         
         public string StringRepresentation()
         {
-            var result = $"Id: {Id}";
+            string result = $"Id: {Id}";
             result += Name.Length != 0 ? $", Name: {Name}" : "";
             result += Deadline != null ? $", Deadline: {Deadline}" : "";
             result += Info.Length != 0 ? $", – {Info}" : "";
-            result += Subtasks.Count != 0 ? ":" : "";
+            result += Subtasks.Count != 0 ? $"({Subtasks.Count(s => s.IsCompleted)}/{Subtasks.Count}:" : "";
 
             return result;
         }

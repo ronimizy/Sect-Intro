@@ -9,7 +9,7 @@ namespace Core
     public class ToDoApp
     {
         private TaskDelegate TaskDelegate { get; set; }
-        private bool Working = true;
+        private bool _working = true;
 
         public ToDoApp()
         {
@@ -18,7 +18,7 @@ namespace Core
 
         public void Run()
         {
-            while (Working)
+            while (_working)
             {
                 var command = Console.ReadLine();
                 ConsoleResponse response;
@@ -35,223 +35,147 @@ namespace Core
                     continue;
                 }
 
-                switch (response.Action)
+                try
                 {
-                    case ConsoleResponse.Actions.Add:
-                        try
-                        {
-                            TaskDelegate.Add(
+                    switch (response.Action)
+                    {
+                        case ConsoleResponse.Actions.Add:
+                            TaskDelegate.AddTask(
                                 response.Name,
                                 response.Info,
                                 response.Deadline);
-                        }
-                        catch (ExistingTaskException e)
-                        {
-                            Console.WriteLine(e.Message);
-                        }
+                            break;
 
-                        break;
-
-                    case ConsoleResponse.Actions.AddSubtask:
-                        try
-                        {
+                        case ConsoleResponse.Actions.AddSubtask:
                             TaskDelegate.AddSubtask(response.Id, response.Info);
-                        }
-                        catch (SubtaskNestingException e)
-                        {
-                            Console.WriteLine(e.Message);
-                        }
+                            break;
 
-                        break;
-
-                    case ConsoleResponse.Actions.Delete:
-                        try
-                        {
-                            TaskDelegate.Delete(response.Id);
-                        }
-                        catch (WrongTaskIdException e)
-                        {
-                            Console.WriteLine(e.Message);
-                        }
-
-                        break;
+                        case ConsoleResponse.Actions.Delete:
+                            TaskDelegate.DeleteTask(response.Id);
+                            break;
 
 
-                    case ConsoleResponse.Actions.CreateGroup:
-                        try
-                        {
+                        case ConsoleResponse.Actions.CreateGroup:
                             TaskDelegate.CreateGroup(response.Name);
-                        }
-                        catch (ExistingGroupException e)
-                        {
-                            Console.WriteLine(e);
-                        }
+                            break;
 
-                        break;
-
-                    case ConsoleResponse.Actions.DeleteGroup:
-                        try
-                        {
+                        case ConsoleResponse.Actions.DeleteGroup:
                             TaskDelegate.DeleteGroup(response.Name);
-                        }
-                        catch (WrongGroupNameException e)
-                        {
-                            Console.WriteLine(e.Message);
-                        }
+                            break;
 
-                        break;
-
-                    case ConsoleResponse.Actions.AddToGroup:
-                        try
-                        {
+                        case ConsoleResponse.Actions.AddToGroup:
                             TaskDelegate.AddToGroup(response.Name, response.Id);
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine(e.Message);
-                        }
+                            break;
 
-                        break;
-
-                    case ConsoleResponse.Actions.DeleteFromGroup:
-                        try
-                        {
+                        case ConsoleResponse.Actions.DeleteFromGroup:
                             TaskDelegate.DeleteFromGroup(response.Name, response.Id);
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine(e.Message);
-                        }
-
-                        break;
+                            break;
 
 
-                    case ConsoleResponse.Actions.All:
-                        var filteredResult = TaskDelegate.Filtered(t => true);
+                        case ConsoleResponse.Actions.All:
+                            var filteredResult = TaskDelegate.Filtered(_ => true);
 
-                        Print(filteredResult);
+                            Print(filteredResult);
 
-                        break;
+                            break;
 
-                    case ConsoleResponse.Actions.Today:
-                        filteredResult = TaskDelegate.Filtered(t =>
-                            t.Deadline != null && (t.Deadline ?? DateTime.Now).Date == DateTime.Now.Date);
+                        case ConsoleResponse.Actions.Today:
+                            filteredResult = TaskDelegate.Filtered(t =>
+                                t.Deadline != null && (t.Deadline ?? DateTime.Now).Date == DateTime.Now.Date);
 
-                        Print(filteredResult);
+                            Print(filteredResult);
 
-                        break;
+                            break;
 
 
-                    case ConsoleResponse.Actions.Save:
-                        if (response.Path != "")
-                            TaskDelegate.Path = response.Path;
-
-                        try
-                        {
+                        case ConsoleResponse.Actions.Save:
+                            if (response.Path != "")
+                                TaskDelegate.Path = response.Path;
+                            
                             TaskDelegate.Save();
-                        }
-                        catch
-                        {
-                            Console.WriteLine($"Saving at {TaskDelegate.Path} failed");
-                        }
+                            break;
 
-                        break;
-
-                    case ConsoleResponse.Actions.Load:
-                        TaskDelegate.Path = response.Path;
-
-                        try
-                        {
-                            TaskDelegate.Load();
-                        }
-                        catch
-                        {
-                            Console.WriteLine($"Loading from {TaskDelegate.Path} failed");
-                        }
-
-                        break;
-
-                    case ConsoleResponse.Actions.Path:
-                        if (response.Path == "")
-                        {
-                            Console.WriteLine(TaskDelegate.Path);
-                        }
-                        else
-                        {
+                        case ConsoleResponse.Actions.Load:
                             TaskDelegate.Path = response.Path;
-                        }
+                            TaskDelegate.Load();
 
-                        break;
+                            break;
+
+                        case ConsoleResponse.Actions.Path:
+                            Console.WriteLine(TaskDelegate.Path);
+                            break;
 
 
-                    case ConsoleResponse.Actions.Complete:
-                        try
-                        {
+                        case ConsoleResponse.Actions.Complete:
                             TaskDelegate.SetComplete(response.Id);
-                        }
-                        catch (WrongTaskIdException e)
-                        {
-                            Console.WriteLine(e.Message);
-                            throw;
-                        }
-                        break;
+                            break;
 
-                    case ConsoleResponse.Actions.Completed:
-                        filteredResult = TaskDelegate.Filtered(t => t.IsCompleted);
+                        case ConsoleResponse.Actions.Completed:
+                            filteredResult = TaskDelegate.Filtered(t => t.IsCompleted);
 
-                        Print(filteredResult);
+                            Print(filteredResult);
                         
-                        break;
+                            break;
 
-                    case ConsoleResponse.Actions.CompletedGroup:
-                        var group = TaskDelegate.Groups.Find(g => g.Name == response.Name);
+                        case ConsoleResponse.Actions.CompletedGroup:
+                            var group = TaskDelegate.Groups.Find(g => g.Name == response.Name);
                         
-                        if (group == null)
-                            Console.WriteLine(new WrongGroupNameException().Message);
+                            if (group == null)
+                                Console.WriteLine(new WrongGroupNameException().Message);
 
-                        Print((new List<(string, List<Task>)>
-                        {
-                            new (group.Name, group.Tasks.FindAll(t => t.IsCompleted))
-                        }, new List<Task>()));
-
-                        break;
-
-
-                    case ConsoleResponse.Actions.Exit:
-                        Working = false;
-                        break;
-
-                    case ConsoleResponse.Actions.Help:
-                        if (response.HelpWith == "")
-                        {
-                            foreach (var pair in ConsoleResponse.Help)
+                            var data = new FilteredData()
                             {
-                                Console.WriteLine($"/{pair.Key} {pair.Value}");
+                                Groups = new List<(string name, List<Task> tasks)>
+                                {
+                                    new (group.Name, group.Tasks.FindAll(t => t.IsCompleted))
+                                }
+                            };
+                            
+                            Print(data);
+
+                            break;
+
+
+                        case ConsoleResponse.Actions.Exit:
+                            _working = false;
+                            break;
+
+                        case ConsoleResponse.Actions.Help:
+                            if (response.HelpWith == "")
+                            {
+                                foreach (var pair in ConsoleResponse.Help)
+                                {
+                                    Console.WriteLine($"/{pair.Key} {pair.Value}");
+                                }
+
+                                break;
                             }
 
+                            if (ConsoleResponse.Help.ContainsKey(response.HelpWith))
+                            {
+                                Console.WriteLine($"/{response.HelpWith} {ConsoleResponse.Help[response.HelpWith]}");
+                                break;
+                            }
+
+                            Console.WriteLine("No such command");
+
                             break;
-                        }
 
-                        if (ConsoleResponse.Help.ContainsKey(response.HelpWith))
-                        {
-                            Console.WriteLine($"/{response.HelpWith} {ConsoleResponse.Help[response.HelpWith]}");
+                        case ConsoleResponse.Actions.None:
+                            Console.WriteLine("This command doesn't exist, try \"/help\" to see the list of commands!");
                             break;
-                        }
-
-                        Console.WriteLine("No such command");
-
-                        break;
-
-                    case ConsoleResponse.Actions.None:
-                        Console.WriteLine("This command doesn't exist, try \"/help\" to see the list of commands!");
-                        break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
                 }
             }
         }
 
-        private static void Print((List<(string, List<Task>)>, List<Task>) result)
+        private static void Print(FilteredData data)
         {
-            foreach (var group in result.Item1)
+            foreach (var group in data.Groups)
             {
                 Console.WriteLine(group.Item1 + ":");
 
@@ -270,7 +194,7 @@ namespace Core
                 }
             }
 
-            foreach (var task in result.Item2)
+            foreach (var task in data.Tasks)
             {
                 Console.ForegroundColor = task.IsCompleted ? ConsoleColor.Green : ConsoleColor.DarkYellow;
                 if (task.Deadline != null && task.Deadline.Value < DateTime.Now)

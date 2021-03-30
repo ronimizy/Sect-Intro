@@ -32,7 +32,7 @@ namespace Core.Models
             None,
         }
 
-        public static Dictionary<string, string> Help = new ()
+        public static readonly Dictionary<string, string> Help = new ()
         {
             {
                 "add",

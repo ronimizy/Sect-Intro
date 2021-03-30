@@ -1,6 +1,4 @@
 ﻿using System;
-using System.IO;
-using Core.Models;
 
 namespace Core
 {

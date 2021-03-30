@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -10,14 +11,14 @@ namespace Core.Entities
     {
         public static ConsoleResponse Parse(string line)
         {
-            var args = line.Split(" ").ToList();
+            List<string> args = line.Split(" ").ToList();
 
             switch (args[0])
             {
                 case "/add":
-                    var infoIndex = args.FindIndex((s => s == "-i"));
-                    var deadlineIndex = args.FindIndex((s => s == "-d"));
-                    var formatIndex = args.FindIndex(s => s == "-f");
+                    int infoIndex = args.FindIndex((s => s == "-i"));
+                    int deadlineIndex = args.FindIndex((s => s == "-d"));
+                    int formatIndex = args.FindIndex(s => s == "-f");
 
                     if (args.Count < Math.Max(infoIndex, deadlineIndex) + 1)
                         throw new InvalidDataException();

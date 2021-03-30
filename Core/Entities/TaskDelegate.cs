@@ -29,16 +29,17 @@ namespace Core.Entities
             }
             else
             {
-                ToDoFile.Save(Tasks, Groups, Size, Path);
+                ToDoFile.Save(new FileData(Groups, Tasks, Size), Path);
             }
         }
 
         public void Load()
         {
-            (Tasks, Groups, Size) = ToDoFile.Load(Path);
+            FileData data = ToDoFile.Load(Path);
+            (Tasks, Groups, Size) = (data.Tasks, data.Groups, data.Size);
         }
 
-        public void Add(string name, string info, DateTime? deadline)
+        public void AddTask(string name, string info, DateTime? deadline)
         {
             if (Contains(name))
                 throw new ExistingTaskException();
@@ -46,13 +47,49 @@ namespace Core.Entities
             Tasks.Add(new Task(Size++, name, info, false, deadline, new List<Task>()));
         }
 
+        public void DeleteTask(int id)
+        {
+            FoundTask? address = FindTask(t => t.Id == id);
+
+            if (address == null)
+                throw new WrongTaskIdException();
+
+            address.Container.Remove(address.Task);
+        }
+        
+        public void SetComplete(int id)
+        {
+            FoundTask? address = FindTask(t => t.Id == id);
+
+            if (address == null)
+                throw new WrongTaskIdException();
+
+            address.Task.IsCompleted = true;
+
+            address.Container.Sort((task, task1) =>
+            {
+                if (task.IsCompleted && task1.IsCompleted)
+                    return 0;
+                if (task.IsCompleted)
+                    return 1;
+                if (task1.IsCompleted)
+                    return -1;
+
+                return 0;
+            });
+        }
+        
         public void AddSubtask(int id, string info)
         {
-            var task = FindTask(t => t.Id == id);
+            FoundTask? task = FindTask(t => t.Id == id);
 
-            task?.Item2.AddSubtask(new Task(Size++, "", info, false, null, new List<Task>()));
+            if (task == null)
+                throw new WrongTaskIdException();
+
+            task.Task.AddSubtask(new Task(Size++, "", info, false, null, new List<Task>()));
         }
 
+        
         public void CreateGroup(string name)
         {
             if (Groups.Find(g => g.Name == name) != null)
@@ -63,43 +100,40 @@ namespace Core.Entities
 
         public void DeleteGroup(string name)
         {
-            var deleting = Groups.Find(g => g.Name == name);
+            Group? deleting = Groups.Find(g => g.Name == name);
 
             if (deleting == null)
                 throw new WrongGroupNameException();
 
-            foreach (var task in deleting.Tasks)
-            {
-                Tasks.Add(task);
-                deleting.Tasks.Remove(task);
-            }
+            Tasks.AddRange(deleting.Tasks);
+            deleting.Tasks.Clear();
 
             Groups.Remove(deleting);
         }
 
         public void AddToGroup(string name, int id)
         {
-            var address = FindTask(t => t.Id == id);
-            var destination = Groups.Find(g => g.Name == name);
+            FoundTask? taskData = FindTask(t => t.Id == id);
+            Group? destination = Groups.Find(g => g.Name == name);
 
-            if (address == null)
+            if (taskData == null)
                 throw new WrongTaskIdException();
 
             if (destination == null)
                 throw new WrongGroupNameException();
 
-            destination.Tasks.Add(address.Value.Item2);
-            address.Value.Item1.Remove(address.Value.Item2);
+            destination.Tasks.Add(taskData.Task);
+            taskData.Container.Remove(taskData.Task);
         }
 
         public void DeleteFromGroup(string name, int id)
         {
-            var source = Groups.Find(g => g.Name == name);
+            Group? source = Groups.Find(g => g.Name == name);
 
             if (source == null)
                 throw new WrongGroupNameException();
 
-            var deleted = source.Tasks.Find(t => t.Id == id);
+            Task? deleted = source.Tasks.Find(t => t.Id == id);
 
             if (deleted == null)
                 throw new WrongTaskIdException();
@@ -114,116 +148,59 @@ namespace Core.Entities
             return FindTask(t => t.Id == id) != null;
         }
 
-        public bool Contains(string name)
+        private bool Contains(string name)
         {
             return FindTask(t => t.Name == name) != null;
         }
+        
 
-        public void Delete(int id)
+        private FoundTask? FindTask(Func<Task, bool> closure)
         {
-            var address = FindTask(t => t.Id == id);
-
-            if (address == null)
-                throw new WrongTaskIdException();
-
-            address.Value.Item1.Remove(address.Value.Item2);
-        }
-
-        public void SetComplete(int id)
-        {
-            var address = FindTask(t => t.Id == id);
-
-            if (address == null)
-                throw new WrongTaskIdException();
-
-            address.Value.Item2.IsCompleted = true;
-
-            address.Value.Item1.Sort((task, task1) =>
+            if (Groups.Any(g => g.Tasks.Any(closure)))
             {
-                if (task.IsCompleted && task1.IsCompleted)
-                    return 0;
-                if (task.IsCompleted)
-                    return 1;
-                if (task1.IsCompleted)
-                    return -1;
+                Group group = Groups.First(g => g.Tasks.Any(closure));
 
-                return 0;
-            });
-        }
-
-
-        public (List<Task>, Task)? FindTask(Func<Task, bool> closure)
-        {
-            var task = Tasks.Find(t => { return closure(t) || t.Subtasks.Find(s => closure(s)) != null; });
-
-            if (task != null)
-            {
-                if (closure(task))
-                    return (Tasks, task);
-
-                return (task.Subtasks, task.Subtasks.Find(s => closure(s)));
+                return new FoundTask(group.Tasks, group.Tasks.First(closure));
             }
 
-            var group = Groups.Find(g =>
+            if (Groups.Any(g => g.Tasks.Any(t => t.Subtasks.Any(closure))))
             {
-                return g.Tasks.Find(t =>
-                {
-                    return closure(t) || t.Subtasks.Find(s => closure(s)) != null;
-                }) != null;
-            });
+                Group group = Groups.First(g => g.Tasks.Any(t => t.Subtasks.Any(closure)));
+                Task task = group.Tasks.First(t => t.Subtasks.Any(closure));
+                Task subtask = task.Subtasks.First(closure);
 
-            if (group == null)
-                return null;
+                return new FoundTask(task.Subtasks, subtask);
+            }
 
-            task = group.Tasks.Find(t => closure(t) || t.Subtasks.Find(s => closure(s)) != null);
-            return closure(task) ? (group.Tasks, task) : (task?.Subtasks, task?.Subtasks.Find(s => closure(s)));
+            if (Tasks.Any(closure))
+            {
+                return new FoundTask(Tasks, Tasks.First(closure));
+            }
+
+            if (Tasks.Any(t => t.Subtasks.Any(closure)))
+            {
+                Task task = Tasks.First(t => t.Subtasks.Any(closure));
+                Task subtask = task.Subtasks.First(closure);
+
+                return new FoundTask(task.Subtasks, subtask);
+            }
+
+            return null;
         }
 
-        public (List<(string, List<Task>)>, List<Task>) Filtered(Func<Task, bool> closure)
+        public FilteredData Filtered(Func<Task, bool> closure)
         {
-            var groups = new List<(string, List<Task>)>();
-            var tasks = new List<Task>();
-
-            foreach (var group in Groups)
+            var data = new FilteredData
             {
-                var list = new List<Task>();
-                foreach (var task in group.Tasks)
-                {
-                    if (!closure(task))
-                        continue;
+                Groups = Groups
+                    .Where(g => g.Tasks.Any(closure))
+                    .Select(g => (g.Name, g.Tasks.Where(closure).ToList())).ToList(),
+                Tasks = Tasks
+                    .Where(closure).ToList()
+            };
 
-                    var t = new Task(task);
-                    t.Subtasks.Clear();
 
-                    foreach (var subtask in task.Subtasks.Where(subtask => closure(subtask)))
-                    {
-                        t.Subtasks.Add(subtask);
-                    }
-
-                    list.Add(t);
-                }
-
-                if (list.Count != 0)
-                    groups.Add((group.Name, list));
-            }
-
-            foreach (var task in Tasks)
-            {
-                if (!closure(task))
-                    continue;
-
-                var t = new Task(task);
-                t.Subtasks.Clear();
-
-                foreach (var subtask in task.Subtasks.Where(subtask => closure(subtask)))
-                {
-                    t.Subtasks.Add(subtask);
-                }
-                
-                tasks.Add(t);
-            }
-
-            return (groups, tasks);
+            return data;
         }
     }
 }
